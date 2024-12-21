@@ -13,6 +13,7 @@
             background: #333;
             font-family: monospace;
             overflow: hidden;
+            touch-action: none;
         }
         #gameContainer {
             position: relative;
@@ -38,34 +39,59 @@
         #mobileControls {
             display: none;
             position: fixed;
-            bottom: 20px;
+            bottom: 0;
             left: 0;
             right: 0;
+            height: 180px;
+            background: rgba(0,0,0,0.7);
             padding: 10px;
+            touch-action: none;
         }
         .btn {
-            width: 60px;
-            height: 60px;
+            position: absolute;
+            width: 80px;
+            height: 80px;
             background: rgba(255,255,255,0.2);
-            border: 2px solid #fff;
+            border: 3px solid #fff;
             border-radius: 50%;
             color: #fff;
-            font-size: 24px;
-            margin: 5px;
+            font-size: 40px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            user-select: none;
+            cursor: pointer;
+            touch-action: none;
         }
-        #dpad {
-            position: fixed;
-            bottom: 20px;
-            left: 20px;
-        }
-        #actions {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-        }
+        /* D-pad más grande y separado */
+        #upBtn { left: 90px; bottom: 90px; }
+        #downBtn { left: 90px; bottom: 0; }
+        #leftBtn { left: 0; bottom: 45px; }
+        #rightBtn { left: 180px; bottom: 45px; }
+        
+        /* Botones de acción más grandes y a la derecha */
+        #hideBtn { right: 100px; bottom: 45px; font-size: 35px; }
+        #restartBtn { right: 0; bottom: 45px; font-size: 35px; }
+
         @media (max-width: 768px) {
-            #mobileControls { display: block; }
-            #gameContainer { margin-bottom: 150px; }
+            #mobileControls { 
+                display: block;
+            }
+            #gameContainer { 
+                margin-bottom: 200px;
+            }
+            .btn:active {
+                background: rgba(255,255,255,0.4);
+                transform: scale(0.95);
+            }
+        }
+
+        /* Prevenir selección de texto en móviles */
+        * {
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
         }
     </style>
 </head>
@@ -81,17 +107,17 @@
     </div>
 
     <div id="mobileControls">
-        <div id="dpad">
-            <button class="btn" id="upBtn">↑</button><br>
-            <button class="btn" id="leftBtn">←</button>
-            <button class="btn" id="rightBtn">→</button><br>
-            <button class="btn" id="downBtn">↓</button>
-        </div>
-        <div id="actions">
-            <button class="btn" id="hideBtn">👻</button>
-            <button class="btn" id="restartBtn">🔄</button>
-        </div>
+        <!-- D-pad grande -->
+        <button class="btn" id="upBtn">⬆️</button>
+        <button class="btn" id="downBtn">⬇️</button>
+        <button class="btn" id="leftBtn">⬅️</button>
+        <button class="btn" id="rightBtn">➡️</button>
+        
+        <!-- Botones de acción -->
+        <button class="btn" id="hideBtn">👻</button>
+        <button class="btn" id="restartBtn">🔄</button>
     </div>
+
 
     <script>
         const canvas = document.getElementById('gameCanvas');
