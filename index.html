@@ -4,7 +4,6 @@
     <title>Cazador 8-bit</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <style>
-        /* Los estilos se mantienen igual que antes */
         body {
             margin: 0;
             display: flex;
@@ -53,7 +52,6 @@
             color: #fff;
             font-size: 24px;
             margin: 5px;
-            cursor: pointer;
         }
         #dpad {
             position: fixed;
@@ -100,106 +98,50 @@
         const ctx = canvas.getContext('2d');
         const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
-        // Variables del juego
-        let gameRunning = true;
-        let score = 0;
-        let level = 1;
-        let hideTime = 0;
-        let animationFrame;
-        
-        const player = {
-            x: 200,
-            y: 200,
-            size: 20,
-            hidden: false
-        };
-        
-        let enemies = [];
-        let coins = [];
-
-        // Control de teclas
-        const keys = {up: false, down: false, left: false, right: false};
-
         function resize() {
             const maxWidth = Math.min(window.innerWidth - 40, 800);
             const scale = maxWidth / 400;
             canvas.style.width = `${400 * scale}px`;
             canvas.style.height = `${400 * scale}px`;
         }
+        window.onresize = resize;
+        resize();
 
-        // Función de reinicio mejorada
-        function restart() {
-            // Cancelar el loop actual
-            if (animationFrame) {
-                cancelAnimationFrame(animationFrame);
-            }
-            
-            // Reiniciar variables
-            score = 0;
-            level = 1;
-            hideTime = 0;
-            gameRunning = true;
-            
-            // Reiniciar jugador
-            player.x = 200;
-            player.y = 200;
-            player.hidden = false;
-            
-            // Reiniciar enemigos y monedas
-            initLevel();
-            
-            // Actualizar UI
-            document.getElementById('score').textContent = `Puntos: 0`;
-            document.getElementById('level').textContent = `Nivel: 1`;
-            document.getElementById('hideTimer').textContent = '';
-            
-            // Reiniciar el loop del juego
-            gameLoop();
-        }
+        let score = 0;
+        let level = 1;
+        let hideTime = 0;
+        const player = {x: 200, y: 200, size: 20, hidden: false};
+        let enemies = [];
+        let coins = [];
 
-        // Eventos de teclado
-        document.addEventListener('keydown', (e) => {
+        const keys = {up: false, down: false, left: false, right: false};
+
+        document.onkeydown = (e) => {
             if(e.key === 'ArrowUp') keys.up = true;
             if(e.key === 'ArrowDown') keys.down = true;
             if(e.key === 'ArrowLeft') keys.left = true;
             if(e.key === 'ArrowRight') keys.right = true;
             if(e.key === ' ') hide();
             if(e.key === 'r') restart();
-        });
-
-        document.addEventListener('keyup', (e) => {
+        };
+        document.onkeyup = (e) => {
             if(e.key === 'ArrowUp') keys.up = false;
             if(e.key === 'ArrowDown') keys.down = false;
             if(e.key === 'ArrowLeft') keys.left = false;
             if(e.key === 'ArrowRight') keys.right = false;
-        });
+        };
 
-        // Controles móviles mejorados
         if(isMobile) {
-            const upBtn = document.getElementById('upBtn');
-            const downBtn = document.getElementById('downBtn');
-            const leftBtn = document.getElementById('leftBtn');
-            const rightBtn = document.getElementById('rightBtn');
-            const hideBtn = document.getElementById('hideBtn');
-            const restartBtn = document.getElementById('restartBtn');
-
-            // Eventos touch para movimiento
-            upBtn.addEventListener('touchstart', (e) => { e.preventDefault(); keys.up = true; });
-            downBtn.addEventListener('touchstart', (e) => { e.preventDefault(); keys.down = true; });
-            leftBtn.addEventListener('touchstart', (e) => { e.preventDefault(); keys.left = true; });
-            rightBtn.addEventListener('touchstart', (e) => { e.preventDefault(); keys.right = true; });
-
-            upBtn.addEventListener('touchend', (e) => { e.preventDefault(); keys.up = false; });
-            downBtn.addEventListener('touchend', (e) => { e.preventDefault(); keys.down = false; });
-            leftBtn.addEventListener('touchend', (e) => { e.preventDefault(); keys.left = false; });
-            rightBtn.addEventListener('touchend', (e) => { e.preventDefault(); keys.right = false; });
-
-            // Eventos para acciones
-            hideBtn.addEventListener('touchstart', (e) => { e.preventDefault(); hide(); });
-            restartBtn.addEventListener('touchstart', (e) => { e.preventDefault(); restart(); });
-
-            // Prevenir el scroll en móvil
-            document.addEventListener('touchmove', (e) => e.preventDefault(), { passive: false });
+            document.getElementById('upBtn').ontouchstart = () => keys.up = true;
+            document.getElementById('downBtn').ontouchstart = () => keys.down = true;
+            document.getElementById('leftBtn').ontouchstart = () => keys.left = true;
+            document.getElementById('rightBtn').ontouchstart = () => keys.right = true;
+            document.getElementById('upBtn').ontouchend = () => keys.up = false;
+            document.getElementById('downBtn').ontouchend = () => keys.down = false;
+            document.getElementById('leftBtn').ontouchend = () => keys.left = false;
+            document.getElementById('rightBtn').ontouchend = () => keys.right = false;
+            document.getElementById('hideBtn').onclick = hide;
+            document.getElementById('restartBtn').onclick = restart;
         }
 
         function hide() {
@@ -212,6 +154,20 @@
                     document.getElementById('hideTimer').textContent = '';
                 }, 5000);
             }
+        }
+
+        function restart() {
+            score = 0;
+            level = 1;
+            player.x = 200;
+            player.y = 200;
+            player.hidden = false;
+            hideTime = 0;
+            initLevel();
+            gameRunning = true;
+            document.getElementById('score').textContent = `Puntos: 0`;
+            document.getElementById('level').textContent = `Nivel: 1`;
+            document.getElementById('hideTimer').textContent = '';
         }
 
         function initLevel() {
@@ -232,16 +188,16 @@
             }
         }
 
-        function update() {
-            if (!gameRunning) return;
+        let gameRunning = true;
 
-            // Mover jugador
+        function update() {
+            if(!gameRunning) return;
+
             if(keys.up && player.y > 0) player.y -= 5;
             if(keys.down && player.y < 380) player.y += 5;
             if(keys.left && player.x > 0) player.x -= 5;
             if(keys.right && player.x < 380) player.x += 5;
 
-            // Mover enemigos
             enemies.forEach(enemy => {
                 if(!player.hidden) {
                     let dx = player.x - enemy.x;
@@ -249,15 +205,19 @@
                     let dist = Math.sqrt(dx*dx + dy*dy);
                     enemy.x += dx/dist * enemy.speed;
                     enemy.y += dy/dist * enemy.speed;
+                } else {
+                    enemy.x += (Math.random() - 0.5) * enemy.speed * 0.3;
+                    enemy.y += (Math.random() - 0.5) * enemy.speed * 0.3;
                 }
 
-                // Colisión
                 if(!player.hidden && Math.hypot(player.x-enemy.x, player.y-enemy.y) < 20) {
                     gameOver();
                 }
+
+                enemy.x = Math.min(Math.max(enemy.x, 0), 380);
+                enemy.y = Math.min(Math.max(enemy.y, 0), 380);
             });
 
-            // Recolectar monedas
             coins = coins.filter(coin => {
                 if(Math.hypot(player.x-coin.x, player.y-coin.y) < 20) {
                     score += 10;
@@ -272,7 +232,6 @@
 
             if(coins.length === 0) initLevel();
 
-            // Actualizar UI
             document.getElementById('score').textContent = `Puntos: ${score}`;
             document.getElementById('level').textContent = `Nivel: ${level}`;
             if(hideTime > 0) {
@@ -286,11 +245,9 @@
             ctx.fillStyle = '#000';
             ctx.fillRect(0, 0, 400, 400);
 
-            // Dibujar jugador
             ctx.fillStyle = player.hidden ? '#033' : '#0f0';
             ctx.fillRect(player.x-10, player.y-10, 20, 20);
 
-            // Dibujar enemigos
             ctx.fillStyle = '#f00';
             enemies.forEach(enemy => {
                 ctx.beginPath();
@@ -300,7 +257,6 @@
                 ctx.fill();
             });
 
-            // Dibujar monedas
             ctx.fillStyle = '#ff0';
             coins.forEach(coin => {
                 ctx.beginPath();
@@ -315,20 +271,15 @@
             ctx.font = '48px monospace';
             ctx.fillText('¡GAME OVER!', 70, 200);
             ctx.font = '24px monospace';
-            ctx.fillText('Toca 🔄 para reiniciar', 70, 240);
+            ctx.fillText('R o 🔄 para reiniciar', 70, 240);
         }
 
         function gameLoop() {
-            if(gameRunning) {
-                update();
-                draw();
-                animationFrame = requestAnimationFrame(gameLoop);
-            }
+            update();
+            draw();
+            requestAnimationFrame(gameLoop);
         }
 
-        // Inicialización
-        window.addEventListener('resize', resize);
-        resize();
         initLevel();
         gameLoop();
     </script>
