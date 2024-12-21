@@ -120,6 +120,8 @@
 
 
     <script>
+        const backgroundTiles = createBackground(400, 400, 40);
+const currentPath = generatePath(400, 400, 5);
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
         const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
@@ -268,6 +270,9 @@
         }
 
         function draw() {
+            drawBackground(ctx, backgroundTiles, 40);
+            drawPath(ctx, currentPath);
+        
             ctx.fillStyle = '#000';
             ctx.fillRect(0, 0, 400, 400);
 
@@ -298,6 +303,8 @@
             ctx.fillText('¡GAME OVER!', 70, 200);
             ctx.font = '24px monospace';
             ctx.fillText('R o 🔄 para reiniciar', 70, 240);
+        createBloodEffect(player.x, player.y);
+        sounds.death.play();
         }
 
         function gameLoop() {
