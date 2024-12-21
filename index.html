@@ -63,30 +63,21 @@
             cursor: pointer;
             touch-action: none;
         }
-        /* D-pad más grande y separado */
         #upBtn { left: 90px; bottom: 90px; }
         #downBtn { left: 90px; bottom: 0; }
         #leftBtn { left: 0; bottom: 45px; }
         #rightBtn { left: 180px; bottom: 45px; }
-        
-        /* Botones de acción más grandes y a la derecha */
         #hideBtn { right: 100px; bottom: 45px; font-size: 35px; }
         #restartBtn { right: 0; bottom: 45px; font-size: 35px; }
 
         @media (max-width: 768px) {
-            #mobileControls { 
-                display: block;
-            }
-            #gameContainer { 
-                margin-bottom: 200px;
-            }
+            #mobileControls { display: block; }
+            #gameContainer { margin-bottom: 200px; }
             .btn:active {
                 background: rgba(255,255,255,0.4);
                 transform: scale(0.95);
             }
         }
-
-        /* Prevenir selección de texto en móviles */
         * {
             -webkit-user-select: none;
             -moz-user-select: none;
@@ -107,17 +98,13 @@
     </div>
 
     <div id="mobileControls">
-        <!-- D-pad grande -->
         <button class="btn" id="upBtn">⬆️</button>
         <button class="btn" id="downBtn">⬇️</button>
         <button class="btn" id="leftBtn">⬅️</button>
         <button class="btn" id="rightBtn">➡️</button>
-        
-        <!-- Botones de acción -->
         <button class="btn" id="hideBtn">👻</button>
         <button class="btn" id="restartBtn">🔄</button>
     </div>
-
 
     <script>
         const canvas = document.getElementById('gameCanvas');
@@ -139,6 +126,39 @@
         const player = {x: 200, y: 200, size: 20, hidden: false};
         let enemies = [];
         let coins = [];
+        let bloodParticles = [];
+        let gameRunning = true;
+
+        function createBloodEffect(x, y) {
+            for(let i = 0; i < 50; i++) {
+                bloodParticles.push({
+                    x: x,
+                    y: y,
+                    dx: (Math.random() - 0.5) * 10,
+                    dy: (Math.random() - 0.5) * 10,
+                    size: Math.random() * 5 + 2,
+                    life: 60
+                });
+            }
+        }
+
+        function updateBloodParticles() {
+            bloodParticles = bloodParticles.filter(particle => {
+                particle.x += particle.dx;
+                particle.y += particle.dy;
+                particle.life--;
+                return particle.life > 0;
+            });
+        }
+
+        function drawBloodParticles() {
+            ctx.fillStyle = '#ff0000';
+            bloodParticles.forEach(particle => {
+                ctx.beginPath();
+                ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
+                ctx.fill();
+            });
+        }
 
         const keys = {up: false, down: false, left: false, right: false};
 
@@ -189,6 +209,7 @@
             player.y = 200;
             player.hidden = false;
             hideTime = 0;
+            bloodParticles = [];
             initLevel();
             gameRunning = true;
             document.getElementById('score').textContent = `Puntos: 0`;
@@ -213,8 +234,6 @@
                 });
             }
         }
-
-        let gameRunning = true;
 
         function update() {
             if(!gameRunning) return;
@@ -289,10 +308,14 @@
                 ctx.arc(coin.x, coin.y, 8, 0, Math.PI*2);
                 ctx.fill();
             });
+
+            updateBloodParticles();
+            drawBloodParticles();
         }
 
         function gameOver() {
             gameRunning = false;
+            createBloodEffect(player.x, player.y);
             ctx.fillStyle = '#fff';
             ctx.font = '48px monospace';
             ctx.fillText('¡GAME OVER!', 70, 200);
