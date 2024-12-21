@@ -2,62 +2,143 @@
 <html>
 <head>
     <title>Cazador 8-bit</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <style>
         body {
+            margin: 0;
+            padding: 0;
             display: flex;
             justify-content: center;
             align-items: center;
-            height: 100vh;
-            margin: 0;
+            min-height: 100vh;
             background-color: #333;
             font-family: 'Courier New', monospace;
+            touch-action: none;
+            overflow: hidden;
         }
+
         #gameContainer {
+            position: relative;
+            width: 100%;
+            max-width: 800px;
             text-align: center;
         }
+
         #gameCanvas {
             border: 4px solid #fff;
             background-color: #000;
+            max-width: 100%;
+            height: auto;
         }
+
         .stats {
             display: flex;
             justify-content: space-between;
             color: #fff;
-            font-size: 20px;
+            font-size: 16px;
             margin: 10px;
             padding: 10px;
             background-color: #222;
             border: 2px solid #444;
         }
+
         .controls {
             color: #fff;
-            font-size: 16px;
+            font-size: 14px;
             margin: 10px;
             text-align: left;
             background-color: #222;
             padding: 10px;
             border: 2px solid #444;
         }
-        .title {
-            color: #fff;
+
+        #mobileControls {
+            display: none;
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            padding: 10px;
+            background-color: rgba(0, 0, 0, 0.7);
+        }
+
+        .control-button {
+            width: 60px;
+            height: 60px;
+            background-color: rgba(255, 255, 255, 0.2);
+            border: 2px solid #fff;
+            border-radius: 50%;
+            margin: 5px;
+            color: white;
             font-size: 24px;
-            margin: 10px;
-            text-shadow: 2px 2px #000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            user-select: none;
+            touch-action: none;
+        }
+
+        #dpad {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            display: grid;
+            grid-template-columns: repeat(3, 60px);
+            grid-template-rows: repeat(3, 60px);
+            gap: 5px;
+        }
+
+        #actionButtons {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            display: flex;
+            gap: 10px;
+        }
+
+        .up { grid-column: 2; grid-row: 1; }
+        .left { grid-column: 1; grid-row: 2; }
+        .right { grid-column: 3; grid-row: 2; }
+        .down { grid-column: 2; grid-row: 3; }
+
+        @media (max-width: 768px) {
+            #gameContainer {
+                margin-bottom: 180px;
+            }
+            #mobileControls {
+                display: block;
+            }
+            .controls {
+                display: none;
+            }
         }
     </style>
 </head>
 <body>
     <div id="gameContainer">
-        <div class="title">🎮 CAZADOR 8-BIT 🎮</div>
+        <div class="title" style="color: #fff; font-size: 24px; margin: 10px;">🎮 CAZADOR 8-bit 🎮</div>
         <canvas id="gameCanvas" width="400" height="400"></canvas>
         <div class="stats">
             <div id="score">Puntos: 0</div>
             <div id="level">Nivel: 1</div>
             <div id="highscore">Mejor: 0</div>
+            <div id="hideTimer"></div>
         </div>
         <div class="controls">
-            🎮 Controles:
-            ↑↓←→ Mover | ESPACIO Esconderse | R Reiniciar
+            🎮 PC: Flechas para Mover | ESPACIO Esconderse (5s) | R Reiniciar
+        </div>
+    </div>
+
+    <div id="mobileControls">
+        <div id="dpad">
+            <button class="control-button up">↑</button>
+            <button class="control-button left">←</button>
+            <button class="control-button right">→</button>
+            <button class="control-button down">↓</button>
+        </div>
+        <div id="actionButtons">
+            <button class="control-button" id="hideButton">👻</button>
+            <button class="control-button" id="restartButton">🔄</button>
         </div>
     </div>
 
@@ -67,26 +148,34 @@
         const scoreElement = document.getElementById('score');
         const levelElement = document.getElementById('level');
         const highscoreElement = document.getElementById('highscore');
+        const hideTimerElement = document.getElementById('hideTimer');
 
+        // Detectar si es dispositivo móvil
+        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
+        // Ajustar tamaño del canvas para móvil
+        function resizeCanvas() {
+            const container = document.getElementById('gameContainer');
+            const maxWidth = Math.min(window.innerWidth - 40, 800);
+            const scale = maxWidth / 400;
+            canvas.style.width = `${400 * scale}px`;
+            canvas.style.height = `${400 * scale}px`;
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        // Variables del juego
         let score = 0;
         let highscore = 0;
         let level = 1;
         let gameLoop;
         let enemies = [];
         let powerUps = [];
-        let path = [];
-
-        // Generar camino
-        function generatePath() {
-            path = [];
-            const points = 5;
-            for (let i = 0; i < points; i++) {
-                path.push({
-                    x: 50 + (canvas.width - 100) * (i / (points - 1)),
-                    y: 50 + Math.random() * (canvas.height - 100)
-                });
-            }
-        }
+        let hideTimeLeft = 0;
+        let hideStartTime = 0;
+        const HIDE_DURATION = 5000; // 5 segundos
+        let bloodParticles = [];
 
         // Jugador
         const player = {
@@ -101,11 +190,11 @@
         // Configuración del nivel
         const levelConfig = {
             enemyCount: 3,
-            enemySpeed: 2,
+            enemySpeed: 1.5,
             powerUpCount: 2
         };
 
-        // Controles
+        // Controles de teclado
         const keys = {
             ArrowUp: false,
             ArrowDown: false,
@@ -114,7 +203,98 @@
             Space: false
         };
 
-        // Inicializar enemigos
+        // Controles móviles
+        if (isMobile) {
+            // Control direccional (D-pad)
+            document.querySelectorAll('#dpad .control-button').forEach(button => {
+                button.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    if (button.classList.contains('up')) keys.ArrowUp = true;
+                    if (button.classList.contains('down')) keys.ArrowDown = true;
+                    if (button.classList.contains('left')) keys.ArrowLeft = true;
+                    if (button.classList.contains('right')) keys.ArrowRight = true;
+                });
+
+                button.addEventListener('touchend', (e) => {
+                    e.preventDefault();
+                    if (button.classList.contains('up')) keys.ArrowUp = false;
+                    if (button.classList.contains('down')) keys.ArrowDown = false;
+                    if (button.classList.contains('left')) keys.ArrowLeft = false;
+                    if (button.classList.contains('right')) keys.ArrowRight = false;
+                });
+            });
+
+            // Botón de esconderse
+            document.getElementById('hideButton').addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                if (!player.isHidden && hideTimeLeft <= 0) {
+                    player.isHidden = true;
+                    hideStartTime = Date.now();
+                    hideTimeLeft = HIDE_DURATION;
+                }
+            });
+
+            // Botón de reiniciar
+            document.getElementById('restartButton').addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                resetGame();
+            });
+        }
+
+        // Controles de teclado (para PC)
+        document.addEventListener('keydown', (e) => {
+            if (e.code in keys) {
+                e.preventDefault();
+                keys[e.code] = true;
+                if (e.code === 'Space' && !player.isHidden && hideTimeLeft <= 0) {
+                    player.isHidden = true;
+                    hideStartTime = Date.now();
+                    hideTimeLeft = HIDE_DURATION;
+                }
+            }
+            if (e.code === 'KeyR') {
+                resetGame();
+            }
+        });
+
+        document.addEventListener('keyup', (e) => {
+            if (e.code in keys) {
+                e.preventDefault();
+                keys[e.code] = false;
+            }
+        });
+
+        function createBloodParticles(x, y) {
+            for(let i = 0; i < 30; i++) {
+                bloodParticles.push({
+                    x: x,
+                    y: y,
+                    dx: (Math.random() - 0.5) * 10,
+                    dy: (Math.random() - 0.5) * 10,
+                    size: Math.random() * 4 + 2,
+                    life: 30
+                });
+            }
+        }
+
+        function updateBloodParticles() {
+            bloodParticles = bloodParticles.filter(particle => {
+                particle.x += particle.dx;
+                particle.y += particle.dy;
+                particle.life--;
+                return particle.life > 0;
+            });
+        }
+
+        function drawBloodParticles() {
+            bloodParticles.forEach(particle => {
+                ctx.fillStyle = '#ff0000';
+                ctx.beginPath();
+                ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
+                ctx.fill();
+            });
+        }
+
         function initEnemies() {
             enemies = [];
             for (let i = 0; i < levelConfig.enemyCount; i++) {
@@ -128,44 +308,36 @@
             }
         }
 
-        // Inicializar power-ups
         function initPowerUps() {
             powerUps = [];
             for (let i = 0; i < levelConfig.powerUpCount; i++) {
                 powerUps.push({
-                    x: path[Math.floor(Math.random() * path.length)].x,
-                    y: path[Math.floor(Math.random() * path.length)].y,
+                    x: Math.random() * (canvas.width - 15),
+                    y: Math.random() * (canvas.height - 15),
                     size: 15,
                     color: '#ffff00'
                 });
             }
         }
 
-        // Event Listeners
-        document.addEventListener('keydown', (e) => {
-            if (e.code in keys) {
-                keys[e.code] = true;
-            }
-        });
-
-        document.addEventListener('keyup', (e) => {
-            if (e.code in keys) {
-                keys[e.code] = false;
-            }
-        });
-
-        // Actualizar jugador
         function updatePlayer() {
             if (keys.ArrowUp && player.y > 0) player.y -= player.speed;
             if (keys.ArrowDown && player.y < canvas.height - player.size) player.y += player.speed;
             if (keys.ArrowLeft && player.x > 0) player.x -= player.speed;
             if (keys.ArrowRight && player.x < canvas.width - player.size) player.x += player.speed;
             
-            player.isHidden = keys.Space;
+            if (player.isHidden) {
+                hideTimeLeft = Math.max(0, HIDE_DURATION - (Date.now() - hideStartTime));
+                hideTimerElement.textContent = `Escondido: ${Math.ceil(hideTimeLeft/1000)}s`;
+                if (hideTimeLeft <= 0) {
+                    player.isHidden = false;
+                    hideTimerElement.textContent = '';
+                }
+            }
+            
             player.color = player.isHidden ? '#003300' : '#00ff00';
         }
 
-        // Actualizar enemigos
         function updateEnemies() {
             enemies.forEach(enemy => {
                 if (!player.isHidden) {
@@ -176,8 +348,8 @@
                     enemy.x += (dx / distance) * enemy.speed;
                     enemy.y += (dy / distance) * enemy.speed;
                 } else {
-                    enemy.x += (Math.random() - 0.5) * enemy.speed;
-                    enemy.y += (Math.random() - 0.5) * enemy.speed;
+                    enemy.x += (Math.random() - 0.5) * enemy.speed * 0.3;
+                    enemy.y += (Math.random() - 0.5) * enemy.speed * 0.3;
                 }
 
                 enemy.x = Math.max(0, Math.min(canvas.width - enemy.size, enemy.x));
@@ -185,7 +357,6 @@
             });
         }
 
-        // Verificar colisiones
         function checkCollisions() {
             if (!player.isHidden) {
                 enemies.forEach(enemy => {
@@ -194,6 +365,7 @@
                     const distance = Math.sqrt(dx * dx + dy * dy);
                     
                     if (distance < player.size + enemy.size) {
+                        createBloodParticles(player.x, player.y);
                         gameOver();
                     }
                 });
@@ -225,119 +397,30 @@
             }
         }
 
-        // Subir de nivel
         function levelUp() {
             level++;
             levelElement.textContent = `Nivel: ${level}`;
             levelConfig.enemyCount++;
-            levelConfig.enemySpeed += 0.5;
-            generatePath();
+            levelConfig.enemySpeed += 0.2;
             initEnemies();
             initPowerUps();
         }
 
-        // Game Over
         function gameOver() {
             clearInterval(gameLoop);
             ctx.fillStyle = '#fff';
             ctx.font = '48px Courier New';
             ctx.fillText('¡GAME OVER!', 70, canvas.height / 2);
-            ctx.font = '24px Courier New';
-            ctx.fillText('Presiona R para reiniciar', 70, canvas.height / 2 + 40);
             
             if (score > highscore) {
                 highscore = score;
                 highscoreElement.textContent = `Mejor: ${highscore}`;
+                ctx.font = '24px Courier New';
                 ctx.fillText('¡NUEVO RECORD!', 70, canvas.height / 2 + 80);
             }
-
-            document.addEventListener('keydown', restartGame);
         }
 
-        // Reiniciar juego
-        function restartGame(e) {
-            if (e.code === 'KeyR') {
-                document.removeEventListener('keydown', restartGame);
-                score = 0;
-                level = 1;
-                levelConfig.enemyCount = 3;
-                levelConfig.enemySpeed = 2;
-                scoreElement.textContent = `Puntos: ${score}`;
-                levelElement.textContent = `Nivel: ${level}`;
-                player.x = canvas.width / 2;
-                player.y = canvas.height / 2;
-                generatePath();
-                initEnemies();
-                initPowerUps();
-                startGame();
-            }
-        }
-
-        // Dibujar camino
-        function drawPath() {
-            ctx.beginPath();
-            ctx.moveTo(path[0].x, path[0].y);
-            for (let i = 1; i < path.length; i++) {
-                ctx.lineTo(path[i].x, path[i].y);
-            }
-            ctx.strokeStyle = '#333';
-            ctx.lineWidth = 20;
-            ctx.stroke();
-            ctx.strokeStyle = '#444';
-            ctx.lineWidth = 2;
-            ctx.stroke();
-        }
-
-        // Dibujar el juego
-        function draw() {
-            ctx.fillStyle = '#000';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-            drawPath();
-
-            // Dibujar power-ups
-            powerUps.forEach(powerUp => {
-                ctx.fillStyle = powerUp.color;
-                ctx.beginPath();
-                ctx.arc(powerUp.x, powerUp.y, powerUp.size/2, 0, Math.PI * 2);
-                ctx.fill();
-            });
-
-            // Dibujar jugador
-            ctx.fillStyle = player.color;
-            ctx.fillRect(player.x, player.y, player.size, player.size);
-
-            // Dibujar enemigos
-            enemies.forEach(enemy => {
-                ctx.fillStyle = enemy.color;
-                ctx.beginPath();
-                ctx.moveTo(enemy.x + enemy.size/2, enemy.y);
-                ctx.lineTo(enemy.x + enemy.size, enemy.y + enemy.size);
-                ctx.lineTo(enemy.x, enemy.y + enemy.size);
-                ctx.closePath();
-                ctx.fill();
-            });
-        }
-
-        // Loop principal del juego
-        function gameUpdate() {
-            updatePlayer();
-            updateEnemies();
-            checkCollisions();
-            draw();
-        }
-
-        // Iniciar juego
-        function startGame() {
-            gameLoop = setInterval(gameUpdate, 1000 / 60);
-        }
-
-        // Inicializar y comenzar
-        generatePath();
-        initEnemies();
-        initPowerUps();
-        startGame();
-    </script>
-</body>
-</html> 
-
+        function resetGame() {
+            score = 0;
+            level = 1;
+            levelConfig.enemyCount = 3</antArtifact>
