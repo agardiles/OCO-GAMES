@@ -6,421 +6,284 @@
     <style>
         body {
             margin: 0;
-            padding: 0;
             display: flex;
             justify-content: center;
             align-items: center;
             min-height: 100vh;
-            background-color: #333;
-            font-family: 'Courier New', monospace;
-            touch-action: none;
+            background: #333;
+            font-family: monospace;
             overflow: hidden;
         }
-
         #gameContainer {
             position: relative;
             width: 100%;
             max-width: 800px;
             text-align: center;
         }
-
         #gameCanvas {
             border: 4px solid #fff;
-            background-color: #000;
+            background: #000;
             max-width: 100%;
             height: auto;
         }
-
         .stats {
-            display: flex;
-            justify-content: space-between;
             color: #fff;
             font-size: 16px;
             margin: 10px;
             padding: 10px;
-            background-color: #222;
-            border: 2px solid #444;
+            background: #222;
+            display: flex;
+            justify-content: space-between;
         }
-
-        .controls {
-            color: #fff;
-            font-size: 14px;
-            margin: 10px;
-            text-align: left;
-            background-color: #222;
-            padding: 10px;
-            border: 2px solid #444;
-        }
-
         #mobileControls {
             display: none;
             position: fixed;
-            bottom: 0;
+            bottom: 20px;
             left: 0;
             right: 0;
             padding: 10px;
-            background-color: rgba(0, 0, 0, 0.7);
         }
-
-        .control-button {
+        .btn {
             width: 60px;
             height: 60px;
-            background-color: rgba(255, 255, 255, 0.2);
+            background: rgba(255,255,255,0.2);
             border: 2px solid #fff;
             border-radius: 50%;
-            margin: 5px;
-            color: white;
+            color: #fff;
             font-size: 24px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            user-select: none;
-            touch-action: none;
+            margin: 5px;
         }
-
         #dpad {
             position: fixed;
             bottom: 20px;
             left: 20px;
-            display: grid;
-            grid-template-columns: repeat(3, 60px);
-            grid-template-rows: repeat(3, 60px);
-            gap: 5px;
         }
-
-        #actionButtons {
+        #actions {
             position: fixed;
             bottom: 20px;
             right: 20px;
-            display: flex;
-            gap: 10px;
         }
-
-        .up { grid-column: 2; grid-row: 1; }
-        .left { grid-column: 1; grid-row: 2; }
-        .right { grid-column: 3; grid-row: 2; }
-        .down { grid-column: 2; grid-row: 3; }
-
         @media (max-width: 768px) {
-            #gameContainer {
-                margin-bottom: 180px;
-            }
-            #mobileControls {
-                display: block;
-            }
-            .controls {
-                display: none;
-            }
+            #mobileControls { display: block; }
+            #gameContainer { margin-bottom: 150px; }
         }
     </style>
 </head>
 <body>
     <div id="gameContainer">
-        <div class="title" style="color: #fff; font-size: 24px; margin: 10px;">🎮 CAZADOR 8-bit 🎮</div>
+        <h1 style="color: #fff; margin: 10px;">🎮 Cazador 8-bit</h1>
         <canvas id="gameCanvas" width="400" height="400"></canvas>
         <div class="stats">
-            <div id="score">Puntos: 0</div>
-            <div id="level">Nivel: 1</div>
-            <div id="highscore">Mejor: 0</div>
-            <div id="hideTimer"></div>
-        </div>
-        <div class="controls">
-            🎮 PC: Flechas para Mover | ESPACIO Esconderse (5s) | R Reiniciar
+            <span id="score">Puntos: 0</span>
+            <span id="level">Nivel: 1</span>
+            <span id="hideTimer"></span>
         </div>
     </div>
 
     <div id="mobileControls">
         <div id="dpad">
-            <button class="control-button up">↑</button>
-            <button class="control-button left">←</button>
-            <button class="control-button right">→</button>
-            <button class="control-button down">↓</button>
+            <button class="btn" id="upBtn">↑</button><br>
+            <button class="btn" id="leftBtn">←</button>
+            <button class="btn" id="rightBtn">→</button><br>
+            <button class="btn" id="downBtn">↓</button>
         </div>
-        <div id="actionButtons">
-            <button class="control-button" id="hideButton">👻</button>
-            <button class="control-button" id="restartButton">🔄</button>
+        <div id="actions">
+            <button class="btn" id="hideBtn">👻</button>
+            <button class="btn" id="restartBtn">🔄</button>
         </div>
     </div>
 
     <script>
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
-        const scoreElement = document.getElementById('score');
-        const levelElement = document.getElementById('level');
-        const highscoreElement = document.getElementById('highscore');
-        const hideTimerElement = document.getElementById('hideTimer');
-
-        // Detectar si es dispositivo móvil
         const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
-        // Ajustar tamaño del canvas para móvil
-        function resizeCanvas() {
-            const container = document.getElementById('gameContainer');
+        // Ajustar tamaño
+        function resize() {
             const maxWidth = Math.min(window.innerWidth - 40, 800);
             const scale = maxWidth / 400;
             canvas.style.width = `${400 * scale}px`;
             canvas.style.height = `${400 * scale}px`;
         }
-
-        window.addEventListener('resize', resizeCanvas);
-        resizeCanvas();
+        window.onresize = resize;
+        resize();
 
         // Variables del juego
         let score = 0;
-        let highscore = 0;
         let level = 1;
-        let gameLoop;
+        let hideTime = 0;
+        const player = {x: 200, y: 200, size: 20, hidden: false};
         let enemies = [];
-        let powerUps = [];
-        let hideTimeLeft = 0;
-        let hideStartTime = 0;
-        const HIDE_DURATION = 5000; // 5 segundos
-        let bloodParticles = [];
+        let coins = [];
 
-        // Jugador
-        const player = {
-            x: canvas.width / 2,
-            y: canvas.height / 2,
-            size: 20,
-            speed: 5,
-            isHidden: false,
-            color: '#00ff00'
+        // Control de teclas
+        const keys = {up: false, down: false, left: false, right: false};
+
+        // Eventos de teclado
+        document.onkeydown = (e) => {
+            if(e.key === 'ArrowUp') keys.up = true;
+            if(e.key === 'ArrowDown') keys.down = true;
+            if(e.key === 'ArrowLeft') keys.left = true;
+            if(e.key === 'ArrowRight') keys.right = true;
+            if(e.key === ' ') hide();
+            if(e.key === 'r') restart();
         };
-
-        // Configuración del nivel
-        const levelConfig = {
-            enemyCount: 3,
-            enemySpeed: 1.5,
-            powerUpCount: 2
-        };
-
-        // Controles de teclado
-        const keys = {
-            ArrowUp: false,
-            ArrowDown: false,
-            ArrowLeft: false,
-            ArrowRight: false,
-            Space: false
+        document.onkeyup = (e) => {
+            if(e.key === 'ArrowUp') keys.up = false;
+            if(e.key === 'ArrowDown') keys.down = false;
+            if(e.key === 'ArrowLeft') keys.left = false;
+            if(e.key === 'ArrowRight') keys.right = false;
         };
 
         // Controles móviles
-        if (isMobile) {
-            // Control direccional (D-pad)
-            document.querySelectorAll('#dpad .control-button').forEach(button => {
-                button.addEventListener('touchstart', (e) => {
-                    e.preventDefault();
-                    if (button.classList.contains('up')) keys.ArrowUp = true;
-                    if (button.classList.contains('down')) keys.ArrowDown = true;
-                    if (button.classList.contains('left')) keys.ArrowLeft = true;
-                    if (button.classList.contains('right')) keys.ArrowRight = true;
-                });
-
-                button.addEventListener('touchend', (e) => {
-                    e.preventDefault();
-                    if (button.classList.contains('up')) keys.ArrowUp = false;
-                    if (button.classList.contains('down')) keys.ArrowDown = false;
-                    if (button.classList.contains('left')) keys.ArrowLeft = false;
-                    if (button.classList.contains('right')) keys.ArrowRight = false;
-                });
-            });
-
-            // Botón de esconderse
-            document.getElementById('hideButton').addEventListener('touchstart', (e) => {
-                e.preventDefault();
-                if (!player.isHidden && hideTimeLeft <= 0) {
-                    player.isHidden = true;
-                    hideStartTime = Date.now();
-                    hideTimeLeft = HIDE_DURATION;
-                }
-            });
-
-            // Botón de reiniciar
-            document.getElementById('restartButton').addEventListener('touchstart', (e) => {
-                e.preventDefault();
-                resetGame();
-            });
+        if(isMobile) {
+            document.getElementById('upBtn').ontouchstart = () => keys.up = true;
+            document.getElementById('downBtn').ontouchstart = () => keys.down = true;
+            document.getElementById('leftBtn').ontouchstart = () => keys.left = true;
+            document.getElementById('rightBtn').ontouchstart = () => keys.right = true;
+            document.getElementById('upBtn').ontouchend = () => keys.up = false;
+            document.getElementById('downBtn').ontouchend = () => keys.down = false;
+            document.getElementById('leftBtn').ontouchend = () => keys.left = false;
+            document.getElementById('rightBtn').ontouchend = () => keys.right = false;
+            document.getElementById('hideBtn').onclick = hide;
+            document.getElementById('restartBtn').onclick = restart;
         }
 
-        // Controles de teclado (para PC)
-        document.addEventListener('keydown', (e) => {
-            if (e.code in keys) {
-                e.preventDefault();
-                keys[e.code] = true;
-                if (e.code === 'Space' && !player.isHidden && hideTimeLeft <= 0) {
-                    player.isHidden = true;
-                    hideStartTime = Date.now();
-                    hideTimeLeft = HIDE_DURATION;
-                }
-            }
-            if (e.code === 'KeyR') {
-                resetGame();
-            }
-        });
-
-        document.addEventListener('keyup', (e) => {
-            if (e.code in keys) {
-                e.preventDefault();
-                keys[e.code] = false;
-            }
-        });
-
-        function createBloodParticles(x, y) {
-            for(let i = 0; i < 30; i++) {
-                bloodParticles.push({
-                    x: x,
-                    y: y,
-                    dx: (Math.random() - 0.5) * 10,
-                    dy: (Math.random() - 0.5) * 10,
-                    size: Math.random() * 4 + 2,
-                    life: 30
-                });
+        function hide() {
+            if(!player.hidden && hideTime <= 0) {
+                player.hidden = true;
+                hideTime = 5000;
+                setTimeout(() => {
+                    player.hidden = false;
+                    hideTime = 0;
+                    document.getElementById('hideTimer').textContent = '';
+                }, 5000);
             }
         }
 
-        function updateBloodParticles() {
-            bloodParticles = bloodParticles.filter(particle => {
-                particle.x += particle.dx;
-                particle.y += particle.dy;
-                particle.life--;
-                return particle.life > 0;
-            });
+        function restart() {
+            score = 0;
+            level = 1;
+            player.x = 200;
+            player.y = 200;
+            player.hidden = false;
+            hideTime = 0;
+            initLevel();
         }
 
-        function drawBloodParticles() {
-            bloodParticles.forEach(particle => {
-                ctx.fillStyle = '#ff0000';
-                ctx.beginPath();
-                ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
-                ctx.fill();
-            });
-        }
-
-        function initEnemies() {
+        function initLevel() {
             enemies = [];
-            for (let i = 0; i < levelConfig.enemyCount; i++) {
+            coins = [];
+            for(let i = 0; i < 2 + level; i++) {
                 enemies.push({
-                    x: Math.random() * (canvas.width - 20),
-                    y: Math.random() * (canvas.height - 20),
-                    size: 20,
-                    speed: levelConfig.enemySpeed,
-                    color: '#ff0000'
+                    x: Math.random() * 360 + 20,
+                    y: Math.random() * 360 + 20,
+                    speed: 1 + level * 0.2
+                });
+            }
+            for(let i = 0; i < 3; i++) {
+                coins.push({
+                    x: Math.random() * 360 + 20,
+                    y: Math.random() * 360 + 20
                 });
             }
         }
 
-        function initPowerUps() {
-            powerUps = [];
-            for (let i = 0; i < levelConfig.powerUpCount; i++) {
-                powerUps.push({
-                    x: Math.random() * (canvas.width - 15),
-                    y: Math.random() * (canvas.height - 15),
-                    size: 15,
-                    color: '#ffff00'
-                });
-            }
-        }
+        function update() {
+            // Mover jugador
+            if(keys.up && player.y > 0) player.y -= 5;
+            if(keys.down && player.y < 380) player.y += 5;
+            if(keys.left && player.x > 0) player.x -= 5;
+            if(keys.right && player.x < 380) player.x += 5;
 
-        function updatePlayer() {
-            if (keys.ArrowUp && player.y > 0) player.y -= player.speed;
-            if (keys.ArrowDown && player.y < canvas.height - player.size) player.y += player.speed;
-            if (keys.ArrowLeft && player.x > 0) player.x -= player.speed;
-            if (keys.ArrowRight && player.x < canvas.width - player.size) player.x += player.speed;
-            
-            if (player.isHidden) {
-                hideTimeLeft = Math.max(0, HIDE_DURATION - (Date.now() - hideStartTime));
-                hideTimerElement.textContent = `Escondido: ${Math.ceil(hideTimeLeft/1000)}s`;
-                if (hideTimeLeft <= 0) {
-                    player.isHidden = false;
-                    hideTimerElement.textContent = '';
-                }
-            }
-            
-            player.color = player.isHidden ? '#003300' : '#00ff00';
-        }
-
-        function updateEnemies() {
+            // Mover enemigos
             enemies.forEach(enemy => {
-                if (!player.isHidden) {
-                    const dx = player.x - enemy.x;
-                    const dy = player.y - enemy.y;
-                    const distance = Math.sqrt(dx * dx + dy * dy);
-                    
-                    enemy.x += (dx / distance) * enemy.speed;
-                    enemy.y += (dy / distance) * enemy.speed;
-                } else {
-                    enemy.x += (Math.random() - 0.5) * enemy.speed * 0.3;
-                    enemy.y += (Math.random() - 0.5) * enemy.speed * 0.3;
+                if(!player.hidden) {
+                    let dx = player.x - enemy.x;
+                    let dy = player.y - enemy.y;
+                    let dist = Math.sqrt(dx*dx + dy*dy);
+                    enemy.x += dx/dist * enemy.speed;
+                    enemy.y += dy/dist * enemy.speed;
                 }
 
-                enemy.x = Math.max(0, Math.min(canvas.width - enemy.size, enemy.x));
-                enemy.y = Math.max(0, Math.min(canvas.height - enemy.size, enemy.y));
+                // Colisión
+                if(!player.hidden && Math.hypot(player.x-enemy.x, player.y-enemy.y) < 20) {
+                    gameOver();
+                }
             });
-        }
 
-        function checkCollisions() {
-            if (!player.isHidden) {
-                enemies.forEach(enemy => {
-                    const dx = player.x - enemy.x;
-                    const dy = player.y - enemy.y;
-                    const distance = Math.sqrt(dx * dx + dy * dy);
-                    
-                    if (distance < player.size + enemy.size) {
-                        createBloodParticles(player.x, player.y);
-                        gameOver();
-                    }
-                });
-            }
-
-            powerUps = powerUps.filter(powerUp => {
-                const dx = player.x - powerUp.x;
-                const dy = player.y - powerUp.y;
-                const distance = Math.sqrt(dx * dx + dy * dy);
-                
-                if (distance < player.size + powerUp.size) {
+            // Recolectar monedas
+            coins = coins.filter(coin => {
+                if(Math.hypot(player.x-coin.x, player.y-coin.y) < 20) {
                     score += 10;
-                    if (score > highscore) {
-                        highscore = score;
-                        highscoreElement.textContent = `Mejor: ${highscore}`;
-                    }
-                    scoreElement.textContent = `Puntos: ${score}`;
-                    
-                    if (score >= level * 50) {
-                        levelUp();
+                    if(score >= level * 30) {
+                        level++;
+                        initLevel();
                     }
                     return false;
                 }
                 return true;
             });
 
-            if (powerUps.length === 0) {
-                initPowerUps();
+            if(coins.length === 0) initLevel();
+
+            // Actualizar UI
+            document.getElementById('score').textContent = `Puntos: ${score}`;
+            document.getElementById('level').textContent = `Nivel: ${level}`;
+            if(hideTime > 0) {
+                document.getElementById('hideTimer').textContent = 
+                    `Escondido: ${Math.ceil(hideTime/1000)}s`;
+                hideTime = Math.max(0, hideTime - 16);
             }
         }
 
-        function levelUp() {
-            level++;
-            levelElement.textContent = `Nivel: ${level}`;
-            levelConfig.enemyCount++;
-            levelConfig.enemySpeed += 0.2;
-            initEnemies();
-            initPowerUps();
+        function draw() {
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, 400, 400);
+
+            // Dibujar jugador
+            ctx.fillStyle = player.hidden ? '#033' : '#0f0';
+            ctx.fillRect(player.x-10, player.y-10, 20, 20);
+
+            // Dibujar enemigos
+            ctx.fillStyle = '#f00';
+            enemies.forEach(enemy => {
+                ctx.beginPath();
+                ctx.moveTo(enemy.x, enemy.y-10);
+                ctx.lineTo(enemy.x-10, enemy.y+10);
+                ctx.lineTo(enemy.x+10, enemy.y+10);
+                ctx.fill();
+            });
+
+            // Dibujar monedas
+            ctx.fillStyle = '#ff0';
+            coins.forEach(coin => {
+                ctx.beginPath();
+                ctx.arc(coin.x, coin.y, 8, 0, Math.PI*2);
+                ctx.fill();
+            });
         }
 
         function gameOver() {
-            clearInterval(gameLoop);
             ctx.fillStyle = '#fff';
-            ctx.font = '48px Courier New';
-            ctx.fillText('¡GAME OVER!', 70, canvas.height / 2);
-            
-            if (score > highscore) {
-                highscore = score;
-                highscoreElement.textContent = `Mejor: ${highscore}`;
-                ctx.font = '24px Courier New';
-                ctx.fillText('¡NUEVO RECORD!', 70, canvas.height / 2 + 80);
+            ctx.font = '48px monospace';
+            ctx.fillText('¡GAME OVER!', 70, 200);
+            ctx.font = '24px monospace';
+            ctx.fillText('Presiona R para reiniciar', 70, 240);
+            gameRunning = false;
+        }
+
+        let gameRunning = true;
+        function gameLoop() {
+            if(gameRunning) {
+                update();
+                draw();
+                requestAnimationFrame(gameLoop);
             }
         }
 
-        function resetGame() {
-            score = 0;
-            level = 1;
-            levelConfig.enemyCount = 3</antArtifact>
+        initLevel();
+        gameLoop();
+    </script>
+</body>
+</html>
