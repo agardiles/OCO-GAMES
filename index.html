@@ -139,7 +139,42 @@
         const player = {x: 200, y: 200, size: 20, hidden: false};
         let enemies = [];
         let coins = [];
+        let bloodParticles = [];
 
+function createBloodEffect(x, y) {
+    // Crear muchas partículas cuando el jugador muere
+    for(let i = 0; i < 50; i++) {
+        bloodParticles.push({
+            x: x,
+            y: y,
+            dx: (Math.random() - 0.5) * 10, // Velocidad X aleatoria
+            dy: (Math.random() - 0.5) * 10, // Velocidad Y aleatoria
+            size: Math.random() * 5 + 2,    // Tamaño aleatorio
+            life: 60                        // Duración de la partícula
+        });
+    }
+}
+
+function updateBloodParticles() {
+    bloodParticles = bloodParticles.filter(particle => {
+        // Mover la partícula
+        particle.x += particle.dx;
+        particle.y += particle.dy;
+        // Reducir su vida
+        particle.life--;
+        // Mantener solo las partículas vivas
+        return particle.life > 0;
+    });
+}
+
+function drawBloodParticles() {
+    ctx.fillStyle = '#ff0000';
+    bloodParticles.forEach(particle => {
+        ctx.beginPath();
+        ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
+        ctx.fill();
+    });
+}
         const keys = {up: false, down: false, left: false, right: false};
 
         document.onkeydown = (e) => {
@@ -289,10 +324,13 @@
                 ctx.arc(coin.x, coin.y, 8, 0, Math.PI*2);
                 ctx.fill();
             });
+            updateBloodParticles();
+            drawBloodParticles();
         }
 
         function gameOver() {
             gameRunning = false;
+            createBloodEffect(player.x, player.y);
             ctx.fillStyle = '#fff';
             ctx.font = '48px monospace';
             ctx.fillText('¡GAME OVER!', 70, 200);
